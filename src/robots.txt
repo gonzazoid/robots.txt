@@ -1,0 +1,53 @@
+#-----------------------------------------------------------
+# The following robots only understand the 1.0.0 1.0 spec, so
+# really limit where they can go
+#-----------------------------------------------------------
+
+User-agent: fredsbot
+User-agent: pandabot
+User-agent: chives
+Disallow: /images*		# anything starting with /images
+Allow: /images/thisallowed.img
+Disallow: /order.shtml		# don't go there!
+Disallow: /order.cgi		# nor there either!
+Disallow: /blackhole		# there be bad karma here
+Disallow: this/strange/path
+#-----------------------------------------------------------------------
+# okay robots - but since they seem to keep trying over and over again,
+# so let's limit them and attempt to keep them accessing us during slow
+# times.
+#------------------------------------------------------------------------
+
+User-agent: vacuumweb
+User-agent: spanwebbot
+User-agent: spiderbot
+Robot-version: 2.0
+Request-rate: 1/10m 1300-1659		# 8:00 am to noon EST
+Request-rate: 1/20m 1700-0459		# noon to 11:59 pm EST
+Request-rate: 5/1m  0500-1259		# midnight to 7:59 am EST
+Comment: because you guys try all the time, I'm gonna limit you
+Comment: to how many documents you can retrieve.  So there!
+Allow: *.html
+Disallow: *
+
+#------------------------------------------------------------------------
+# the following robot also understands the 2.0.0 2.0 spec, but
+# we want to limit when it can visit the site
+#------------------------------------------------------------------------
+
+User-agent: suckemdry
+Robot-version: 2.0
+Allow: *.html			# only allow HTML pages
+Disallow: *			# and nothing else
+Visit-time: 0600-0845		# and then only between 1 am to 3:45 am EST
+
+
+User-Agent: yandex
+Disallow: /forum
+Disallow: /cgi-bin
+Host: www.glavnoye-zerkalo.ru
+
+
+User-agent: *
+Disallow: /search
+Crawl-delay: 4.5 # задает таймаут в 4.5 секунды
