@@ -1,7 +1,237 @@
-module.exports = function(filecontents){
-    var Robots = function(body){
-	this.rules = "rules" in body ? body.rules : body;
+var Robots = function(body){
+if("object" === typeof body){
+    this.rules = "rules" in body ? body.rules : body;
+}else{
+    var stocks = {};
+    var result = {"bots": {}, "common": {}};
+    var directives = {
+//{{{ user-agent
+        "user-agent": function(argv){
+            //console.log("user-agent directive: ", argv);
+	    //смотрим сток директив - если есть обработанные - то все они к предыдущему набору агентов.
+	                                                     //переносим весь сток директив для агентов, указанных в стоке агентов
+	    //заносим агента в сток агентов
+	    //if(("allow" in stocks) || ("disallow" in stocks) || ("delay" in stocks) || ("visits" in stocks)){
+	    var check = function(cV){
+                return cV in stocks;
+	    };
+	    var watchs = ["allow", "disallow", "crawl-delay", "visit-time", "request-rate", "unresolved"];
+	    if(watchs.some(check)){
+                //перед переносом: мы ориентировочно уже знаем версию протокола, пробуем транслировать allow и disallow в regex-ы
+                if(!("version" in stocks)) stocks.version = "1.0"; 
+		//не надо парсить регексы - это задача для прогона по allow/disallow
+		if("allow" in stocks) stocks.allow = stocks.allow.map(translateRegexp, stocks.version);
+		if("disallow" in stocks) stocks.disallow = stocks.disallow.map(translateRegexp, stocks.version);
+
+                //переносим данные в результат
+                //if(stocks.version === "") stocks.version = "1.0";
+		//TODO если ни одного агента не указано - ошибка или warning
+                if("agents" in stocks){
+                    while(stocks.agents.length){
+                        var agent = stocks.agents.pop();
+		        if(!(agent in result.bots)){
+                            result.bots[agent] = stocks; 
+		        }
+		        else{
+                            //правила для бота написаны в нескольких местах, генерим warning и смотрим, не противоречат ли они друг другу
+		        }
+		    }
+		    delete(stocks.agents);
+		}else{
+                    //warning - есть какие либо директивы но не указан ни один user-agent
+		}
+		stocks = {};
+	    }
+	    if(!("agents" in stocks)) stocks.agents = [];
+	    stocks.agents.push(argv);
+	},
+//}}}
+//{{{ allow
+	"allow": function(argv){
+            //console.log("allow directive: ", argv);
+	    //для пустого правила - особая обработка
+            if(argv === null || argv === "") directives.disallow("/");
+	    else{
+	        if(!("allow" in stocks)) stocks.allow = [];
+	        stocks.allow.push(argv);
+	    }
+	},
+//}}}
+//{{{ disallow
+	"disallow": function(argv){
+            //console.log("disallow directive: ", argv);
+            if(argv === null || argv === "") directives.allow("/");
+	    else{
+	        if(!("disallow" in stocks)) stocks.disallow = [];
+	        stocks.disallow.push(argv);
+	    }
+	},
+//}}}
+//{{{ robot-version
+	"robot-version": function(argv){
+            //console.log("robot version directive: ", argv);
+	    if("version" in stocks){
+                //два раза указана версия в одном наборе правил - отклонение от стандарта, игнорируем
+		//TODO генерить warning
+	    }else{
+                stocks.version = argv;
+	    }
+	},
+//}}}
+//{{{ request-rate
+	"request-rate": function(argv){
+            //console.log("request rate directive: ", argv);
+            if(!("request-rate" in stocks)) stocks["request-rate"] = [];
+	    stocks["request-rate"].push(argv);
+	},
+//}}}
+//{{{ visit-time
+	"visit-time": function(argv){
+		//TODO если директива указана до упоминания ботов - предполагаем что межсекционная. Учесть так же в методе canInow и whenIcan
+            //console.log("visit time directive: ", argv);
+            if(!("visit-time" in stocks)) stocks["visit-time"] = [];
+	    stocks["visit-time"].push(argv);
+	},
+//}}}
+//{{{ crawl-delay
+	"crawl-delay": function(argv){
+		//не стандарт
+            //console.log("crowl delay directive: ", argv);
+	    //TODO вообще надо кидать warning если явно указана вторая версия стандарта
+	    if("crawl-delay" in stocks){
+                //TODO ошибка, дважды указан delay
+	    }else{
+		stocks["crawl-delay"] = argv;
+	    }
+	},
+//}}}
+	"comment": function(argv){
+            //console.log("comment directive: ", argv);
+	},
+//{{{ sitemap
+	"sitemap": function(argv){
+	    //не стандарт, упоминается яндексом
+            //console.log("sitemap directive: ", argv);
+            if(!("sitemap" in result)) result.sitemap = [];
+            result.sitemap.push(argv);
+	},
+//}}}
+//{{{ host
+	"host": function(argv){
+		//не стандарт, упоминается яндексом
+            //console.log("host directive: ", argv);
+	    if("host" in result.common){
+                //ошибка, директива host дожна быть только одна
+	    }else{
+                result.common.host = argv;
+	    }
+	},
+//}}}
+	"clean-param": function(argv){
+		//не стандарт, упоминается яндексом
+            //console.log("clean param directive: ", argv);
+	}
     };
+    var unresolved = function(argv){
+        //console.log("unresolved: ", argv);
+	if(!("unresolved" in stocks)) stocks.unresolved = [];
+        stocks.unresolved.push(argv);
+    }; 
+//{{{ parser toolchain
+    var translateRegexp = function(rule, version){
+	// если просто строка - не переводим в регекс а смотрим на совпадение с заданным путем если совпадение есть и оно с первой позиции - то попали
+	// если строка заканчивается на * а начинается на / (полный путь) - убираем, она подразумевается как при обработке строк, так и регулярок
+	//но надо проверить, не экранирована ли *
+	if(rule[0] === "/" && rule[rule.length-1] === "*") rule = rule.substring(0, rule.length - 1);
+	//rule = rule.replace(/([^\\])\*$/g, "$1"); //это неправильная проверка - на такое \\* сработает как на экранированную *,
+		                                  //но с другой стороны - такие конструкции лучше разбирать парсером
+	//console.log(rule, ": ", detectRegexp(rule));
+        return detectRegexp(rule) ? parseRegex(rule) : rule;
+    };
+    var detectRegexp = function(rule){
+        //ок, как определяем регулярку?
+	//1 - относительный путь (без / в начале)
+	//2 - использование спецсимволов - *, ?, [], 
+	    //с вопросительным знаком - беда!!!
+	//пустое правило обрабатывается как регулярка
+	//TODO yandex понимает $ в конце строки
+	
+	if(!rule.length) return true;
+	switch(true){
+            case rule[0] !== "/": return true;
+	    case /[\*\[\]]/.test(rule): return true;
+	}
+        return false;
+    };
+    var parseRegex = function(rule){
+        //пробуем привести rule к javascript нотации (* меняем на .* и все такое)
+        // если нет экранирующего слеша - \ меняем автоматом
+	//DONE скобки для захвата совпадения (не нужны - полное совпадение и так возвращается match)
+        if(~rule.indexOf("\\")){
+            //есть экран
+        }else{
+	    //DONE надо экранировать точки
+	    //TODO надо экранировать скобки - надо ли? проверить, могут ли они появиться там, и если появились - не являются ли частью регекса
+	    //TODO yandex понимает $ в конце строки
+            var pattern = rule.replace("\.", "\\\.")
+	                      .replace("*", ".*");
+	    if(pattern[0] === "/") pattern = "^" + pattern;
+	    var reg = new RegExp(pattern, "g");
+	    //console.log(reg);
+            return reg;
+	}
+        //return rule;
+    };
+    var nop = function(){
+        //console.log("nop");
+    };
+    var removeComments = function(cV){
+        var commentRegex = /(^|\s+)#.*$/;
+	return cV.replace(commentRegex, "");
+    };
+    var splitLine = function(line) {
+	    //вообще то надо учитывать что между директивой и : не должно быть пробелов а после : пробел обязательно должен быть
+        var idx = String(line).indexOf(':');
+	//TODO то что null - надо в unresolved
+        return (!line || idx < 0) ? null : [line.slice(0, idx), line.slice(idx + 1)];
+    };
+
+    var trimLine = function(line) {
+        switch(true){
+            case !line : return null;
+            case Array.isArray(line): return line.map(trimLine);
+            default: return String(line).trim();
+	}
+    };
+    var tokenizer = function(pair){
+        if(!pair) return [nop, null];
+	return [pair[0].toLowerCase() in directives ? directives[pair[0].toLowerCase()] : unresolved, pair[1]];
+    };
+//}}}  
+    //для начала разобъем по строкам
+    var newlineRegex = /\r\n|\r|\n/;
+    var objCode = body
+                    .split(newlineRegex)
+                    .map(removeComments)
+                    .map(splitLine)
+                    .map(trimLine)
+		    .map(tokenizer);
+    //console.log(objCode);
+
+    if(objCode.length){
+        while(objCode.length){
+            objCode[0][0](objCode[0][1]);
+	    objCode.shift();
+        }
+	directives['user-agent'](""); // перенесем последние директивы
+    }else{
+        //ничего не вышло, закругляемся
+    }
+    //^каждый хандлер директивы делает шифт objCode и кладет результат в последний объект массива. если остался один елемент - это и есть результат, он возвращается
+    //console.log(JSON.stringify(result, null, "  "));
+    this.rules = "rules" in result ? result.rules : result;
+}
+};
 //{{{ prototype.allow
     //TODO пустой disallow - разрешает все, пустой allow - запрещает все
     Robots.prototype.isAllowed = function(request){
@@ -250,242 +480,8 @@ Robots.prototype.getShedule = function(bot){
     return res;
 };
 //}}}
-
-
-    if("object" === typeof filecontents){
-        return new Robots(filecontents);
-    }
-    var stocks = {};
-    var result = {"bots": {}, "common": {}};
-    var directives = {
-//{{{ user-agent
-        "user-agent": function(argv){
-            //console.log("user-agent directive: ", argv);
-	    //смотрим сток директив - если есть обработанные - то все они к предыдущему набору агентов.
-	                                                     //переносим весь сток директив для агентов, указанных в стоке агентов
-	    //заносим агента в сток агентов
-	    //if(("allow" in stocks) || ("disallow" in stocks) || ("delay" in stocks) || ("visits" in stocks)){
-	    var check = function(cV){
-                return cV in stocks;
-	    };
-	    var watchs = ["allow", "disallow", "crawl-delay", "visit-time", "request-rate", "unresolved"];
-	    if(watchs.some(check)){
-                //перед переносом: мы ориентировочно уже знаем версию протокола, пробуем транслировать allow и disallow в regex-ы
-                if(!("version" in stocks)) stocks.version = "1.0"; 
-		//не надо парсить регексы - это задача для прогона по allow/disallow
-		if("allow" in stocks) stocks.allow = stocks.allow.map(translateRegexp, stocks.version);
-		if("disallow" in stocks) stocks.disallow = stocks.disallow.map(translateRegexp, stocks.version);
-
-                //переносим данные в результат
-                //if(stocks.version === "") stocks.version = "1.0";
-		//TODO если ни одного агента не указано - ошибка или warning
-                if("agents" in stocks){
-                    while(stocks.agents.length){
-                        var agent = stocks.agents.pop();
-		        if(!(agent in result.bots)){
-                            result.bots[agent] = stocks; 
-		        }
-		        else{
-                            //правила для бота написаны в нескольких местах, генерим warning и смотрим, не противоречат ли они друг другу
-		        }
-		    }
-		    delete(stocks.agents);
-		}else{
-                    //warning - есть какие либо директивы но не указан ни один user-agent
-		}
-		stocks = {};
-	    }
-	    if(!("agents" in stocks)) stocks.agents = [];
-	    stocks.agents.push(argv);
-	},
-//}}}
-//{{{ allow
-	"allow": function(argv){
-            //console.log("allow directive: ", argv);
-	    //для пустого правила - особая обработка
-            if(argv === null || argv === "") directives.disallow("/");
-	    else{
-	        if(!("allow" in stocks)) stocks.allow = [];
-	        stocks.allow.push(argv);
-	    }
-	},
-//}}}
-//{{{ disallow
-	"disallow": function(argv){
-            //console.log("disallow directive: ", argv);
-            if(argv === null || argv === "") directives.allow("/");
-	    else{
-	        if(!("disallow" in stocks)) stocks.disallow = [];
-	        stocks.disallow.push(argv);
-	    }
-	},
-//}}}
-//{{{ robot-version
-	"robot-version": function(argv){
-            //console.log("robot version directive: ", argv);
-	    if("version" in stocks){
-                //два раза указана версия в одном наборе правил - отклонение от стандарта, игнорируем
-		//TODO генерить warning
-	    }else{
-                stocks.version = argv;
-	    }
-	},
-//}}}
-//{{{ request-rate
-	"request-rate": function(argv){
-            //console.log("request rate directive: ", argv);
-            if(!("request-rate" in stocks)) stocks["request-rate"] = [];
-	    stocks["request-rate"].push(argv);
-	},
-//}}}
-//{{{ visit-time
-	"visit-time": function(argv){
-		//TODO если директива указана до упоминания ботов - предполагаем что межсекционная. Учесть так же в методе canInow и whenIcan
-            //console.log("visit time directive: ", argv);
-            if(!("visit-time" in stocks)) stocks["visit-time"] = [];
-	    stocks["visit-time"].push(argv);
-	},
-//}}}
-//{{{ crawl-delay
-	"crawl-delay": function(argv){
-		//не стандарт
-            //console.log("crowl delay directive: ", argv);
-	    //TODO вообще надо кидать warning если явно указана вторая версия стандарта
-	    if("crawl-delay" in stocks){
-                //TODO ошибка, дважды указан delay
-	    }else{
-		stocks["crawl-delay"] = argv;
-	    }
-	},
-//}}}
-	"comment": function(argv){
-            //console.log("comment directive: ", argv);
-	},
-//{{{ sitemap
-	"sitemap": function(argv){
-	    //не стандарт, упоминается яндексом
-            //console.log("sitemap directive: ", argv);
-            if(!("sitemap" in result)) result.sitemap = [];
-            result.sitemap.push(argv);
-	},
-//}}}
-//{{{ host
-	"host": function(argv){
-		//не стандарт, упоминается яндексом
-            //console.log("host directive: ", argv);
-	    if("host" in result.common){
-                //ошибка, директива host дожна быть только одна
-	    }else{
-                result.common.host = argv;
-	    }
-	},
-//}}}
-	"clean-param": function(argv){
-		//не стандарт, упоминается яндексом
-            //console.log("clean param directive: ", argv);
-	}
-    };
-    var unresolved = function(argv){
-        //console.log("unresolved: ", argv);
-	if(!("unresolved" in stocks)) stocks.unresolved = [];
-        stocks.unresolved.push(argv);
-    }; 
-//{{{ parser toolchain
-    var translateRegexp = function(rule, version){
-	// если просто строка - не переводим в регекс а смотрим на совпадение с заданным путем если совпадение есть и оно с первой позиции - то попали
-	// если строка заканчивается на * а начинается на / (полный путь) - убираем, она подразумевается как при обработке строк, так и регулярок
-	//но надо проверить, не экранирована ли *
-	if(rule[0] === "/" && rule[rule.length-1] === "*") rule = rule.substring(0, rule.length - 1);
-	//rule = rule.replace(/([^\\])\*$/g, "$1"); //это неправильная проверка - на такое \\* сработает как на экранированную *,
-		                                  //но с другой стороны - такие конструкции лучше разбирать парсером
-	//console.log(rule, ": ", detectRegexp(rule));
-        return detectRegexp(rule) ? parseRegex(rule) : rule;
-    };
-    var detectRegexp = function(rule){
-        //ок, как определяем регулярку?
-	//1 - относительный путь (без / в начале)
-	//2 - использование спецсимволов - *, ?, [], 
-	    //с вопросительным знаком - беда!!!
-	//пустое правило обрабатывается как регулярка
-	//TODO yandex понимает $ в конце строки
-	
-	if(!rule.length) return true;
-	switch(true){
-            case rule[0] !== "/": return true;
-	    case /[\*\[\]]/.test(rule): return true;
-	}
-        return false;
-    };
-    var parseRegex = function(rule){
-        //пробуем привести rule к javascript нотации (* меняем на .* и все такое)
-        // если нет экранирующего слеша - \ меняем автоматом
-	//DONE скобки для захвата совпадения (не нужны - полное совпадение и так возвращается match)
-        if(~rule.indexOf("\\")){
-            //есть экран
-        }else{
-	    //DONE надо экранировать точки
-	    //TODO надо экранировать скобки - надо ли? проверить, могут ли они появиться там, и если появились - не являются ли частью регекса
-	    //TODO yandex понимает $ в конце строки
-            var pattern = rule.replace("\.", "\\\.")
-	                      .replace("*", ".*");
-	    if(pattern[0] === "/") pattern = "^" + pattern;
-	    var reg = new RegExp(pattern, "g");
-	    //console.log(reg);
-            return reg;
-	}
-        //return rule;
-    };
-    var nop = function(){
-        //console.log("nop");
-    };
-    var removeComments = function(cV){
-        var commentRegex = /(^|\s+)#.*$/;
-	return cV.replace(commentRegex, "");
-    };
-    var splitLine = function(line) {
-	    //вообще то надо учитывать что между директивой и : не должно быть пробелов а после : пробел обязательно должен быть
-        var idx = String(line).indexOf(':');
-	//TODO то что null - надо в unresolved
-        return (!line || idx < 0) ? null : [line.slice(0, idx), line.slice(idx + 1)];
-    };
-
-    var trimLine = function(line) {
-        switch(true){
-            case !line : return null;
-            case Array.isArray(line): return line.map(trimLine);
-            default: return String(line).trim();
-	}
-    };
-    var tokenizer = function(pair){
-        if(!pair) return [nop, null];
-	return [pair[0].toLowerCase() in directives ? directives[pair[0].toLowerCase()] : unresolved, pair[1]];
-    };
-//}}}  
-    //для начала разобъем по строкам
-    var newlineRegex = /\r\n|\r|\n/;
-    var objCode = filecontents
-                    .split(newlineRegex)
-                    .map(removeComments)
-                    .map(splitLine)
-                    .map(trimLine)
-		    .map(tokenizer);
-    //console.log(objCode);
-
-    if(objCode.length){
-        while(objCode.length){
-            objCode[0][0](objCode[0][1]);
-	    objCode.shift();
-        }
-	directives['user-agent'](""); // перенесем последние директивы
-    }else{
-        //ничего не вышло, закругляемся
-    }
-    //^каждый хандлер директивы делает шифт objCode и кладет результат в последний объект массива. если остался один елемент - это и есть результат, он возвращается
-    //console.log(JSON.stringify(result, null, "  "));
-
-    return new Robots(result);
 };
-
+module.export = Robots;
 
 //var fs = require("fs");
 //var content = fs.readFileSync("./robots.txt", "utf8");
