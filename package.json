@@ -1,0 +1,26 @@
+{
+  "name": "robots.txt",
+  "version": "0.0.1",
+  "description": "smart robots.txt parser.",
+  "keywords": [
+    "robots.txt",
+    "node.js",
+    "javascript"
+  ],
+  "homepage": "https://github.com/gonzazoid/robots.txt/",
+  "license": "MIT",
+  "author": {
+    "name": "Timur Appaev",
+    "url": "https://www.facebook.com/timur.appaev.1"
+  },
+  "main": "src/robots.txt.js",
+  "jsnext:main": "index",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gonzazoid/robots.txt/robots.txt.git"
+  },
+  "scripts": {
+  },
+  "devDependencies": {
+  }
+}
