@@ -103,7 +103,7 @@ Robots.prototype.getRate = function(bot){
 	var res = Math.floor(matches[1]*1000 / pair[0]);
 	return res ? res : defRate;
     };
-    parseTime = function(time){
+    var parseTime = function(time){
         var def = [0, 86400000];
         var pair = time.split("-");
 	if(pair.length !== 2 || pair[0].length !== 4 || pair[1].length !== 4) return def;
@@ -181,7 +181,7 @@ Robots.prototype.getRate = function(bot){
 //{{{ getTime
 Robots.prototype.getTime = function(bot){
 	//TODO - такой же как и в getRate - возможно имеет смысл сделать его публичным
-    parseTime = function(time){
+    var parseTime = function(time){
         var pair = time.split("-");
 	var def = [0, 86400000];
 	if(pair.length !== 2 || pair[0].length !== 4 || pair[1].length !== 4) return def;
