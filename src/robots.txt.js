@@ -483,7 +483,7 @@ Robots.prototype.getShedule = function(bot){
 };
 //}}}
 
-module.export = Robots;
+module.exports = Robots;
 
 //var fs = require("fs");
 //var content = fs.readFileSync("./robots.txt", "utf8");
