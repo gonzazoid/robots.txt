@@ -380,26 +380,26 @@ Robots.prototype.getRate = function(bot){
     var rules;
     var delay;
     switch(true){
-        case (bot in this.rules.bots) && ("crawl-delay" in this.rules.bots[bot]):
+        case ("bots" in this.rules && bot in this.rules.bots) && ("crawl-delay" in this.rules.bots[bot]):
             //смотрим rate для этого бота
             delay = parseInt(this.rules.bots[bot]["crawl-delay"]);
             return isNaN(delay) ? 0 : [{"rate": Math.floor(delay * 1000)}];
-        case (bot in this.rules.bots) && ("request-rate" in this.rules.bots[bot]):
+        case ("bots" in this.rules && bot in this.rules.bots) && ("request-rate" in this.rules.bots[bot]):
             rules = this.rules.bots[bot];
             break;
-        case ("*" in this.rules.bots) && ("crawl-delay" in this.rules.bots["*"]):
+        case ("bots" in this.rules && "*" in this.rules.bots) && ("crawl-delay" in this.rules.bots["*"]):
             //смотрим общую секцию
 		//console.log(this.rules.bots["*"]["crawl-delay"]);
                 delay = parseFloat(this.rules.bots["*"]["crawl-delay"]);
                 return isNaN(delay) ? 0 : [{"rate": Math.floor(delay * 1000)}];
-        case ("*" in this.rules.bots) && ("request-rate" in this.rules.bots["*"]):
+        case ("bots" in this.rules && "*" in this.rules.bots) && ("request-rate" in this.rules.bots["*"]):
                 rules = this.rules.bots["*"];
                 break;
 	    //вдруг?
-	case "crawl-delay" in this.rules.common:
+	case "common" in this.rules && "crawl-delay" in this.rules.common:
             delay = parseInt(this.rules.bots["*"]["crawl-delay"]);
             return isNaN(delay) ? 0 : [{"rate": Math.floor(delay * 1000)}];
-        case "request-rate" in this.rules.common:
+        case "common" in this.rules && "request-rate" in this.rules.common:
             rules = this.rules.common;
             break;
 	default:
@@ -435,14 +435,14 @@ Robots.prototype.getTime = function(bot){
     };
     var rules;
     switch(true){
-        case (bot in this.rules.bots) && ("visit-time" in this.rules.bots[bot]):
+        case ("bots" in this.rules && bot in this.rules.bots) && ("visit-time" in this.rules.bots[bot]):
             //смотрим time для этого бота
             rules = this.rules.bots[bot]; break;
-        case ("*" in this.rules.bots) && ("visit-time" in this.rules.bots["*"]):
+        case ("bots" in this.rules && "*" in this.rules.bots) && ("visit-time" in this.rules.bots["*"]):
             //смотрим общую секцию
             rules = this.rules.bots["*"]; break;
 	    //вдруг?
-        case "visit-time" in this.rules.common:
+        case "common" in this.rules && "visit-time" in this.rules.common:
             rules = this.rules.common;
             break;
 	default:
