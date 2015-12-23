@@ -1,9 +1,10 @@
 var Robots = function(body){
-if("object" === typeof body){
-    this.rules = "rules" in body ? body.rules : body;
-}else{
+    if("object" === typeof body){
+        this.rules = "rules" in body ? body.rules : body;
+    }else{
     var stocks = {};
     var result = {"bots": {}, "common": {}};
+//{{{ directives
     var directives = {
 //{{{ user-agent
         "user-agent": function(argv){
@@ -132,6 +133,7 @@ if("object" === typeof body){
             //console.log("clean param directive: ", argv);
 	}
     };
+//}}}
     var unresolved = function(argv){
         //console.log("unresolved: ", argv);
 	if(!("unresolved" in stocks)) stocks.unresolved = [];
@@ -230,7 +232,7 @@ if("object" === typeof body){
     //^каждый хандлер директивы делает шифт objCode и кладет результат в последний объект массива. если остался один елемент - это и есть результат, он возвращается
     //console.log(JSON.stringify(result, null, "  "));
     this.rules = "rules" in result ? result.rules : result;
-}
+    }
 };
 //{{{ prototype.allow
     //TODO пустой disallow - разрешает все, пустой allow - запрещает все
@@ -480,7 +482,7 @@ Robots.prototype.getShedule = function(bot){
     return res;
 };
 //}}}
-};
+
 module.export = Robots;
 
 //var fs = require("fs");
